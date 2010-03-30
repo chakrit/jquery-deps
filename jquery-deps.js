@@ -21,12 +21,13 @@
         spinId = null;
 
 
-    // util function (TODO: Is this safe?)
-    Array.prototype.remove = function(from, to) {
-        var rest = this.slice((to || from) + 1 || this.length);
-        this.length = from < 0 ? this.length + from : from;
-        return this.push.apply(this, rest);
-    };
+    // util function
+    function removeFromArray(array, from, to) {
+        array = [];
+        var rest = array.slice((to || from) + 1 || array.length);
+        array.length = from < 0 ? array.length + from : from;
+        return array.push.apply(array, rest);
+    }
 
 
     // actual script loader
@@ -63,15 +64,28 @@
                 loadedDeps[item] = false; // this makes (item in loadedDeps) === true
                 shouldSpinLoad = true;
 
-                $.getScript(basePath + item + ".js", (function(item) {
-                    return function() {
-                        loadCounter += 1;
-                        loadedDeps[item] = true;
+                //$("head").append($(document.createElement("script")).html(
+                $.get(basePath + item, {}, (function(item) {
+                    return function(script) {
 
-                        loadQueue.remove($.inArray(item, loadQueue));
+                        // replace the dep as a function so it gets executed once
+                        // it's at the front of the queue -- this effectively defer
+                        // script execution and preserve the depedency execution order
+                        var idx = $.inArray(item, loadQueue);
+                        loadQueue[idx] = function() {
+
+                            // mark as loaded and ready for use (executed)
+                            loadedDeps[item] = true;
+
+                            // WARN: Potential evil, tread lightly.
+                            var scriptTag = $(document.createElement("script")).html(script);
+                            $("head").append(scriptTag);
+                        };
+
+                        loadCounter += 1;
                         spinLoad();
-                    };
-                })(item));
+                    }
+                })(item), 'text');
             }
 
 
@@ -89,17 +103,23 @@
             basePath_ = null;
         }
 
-        if (basePath_) basePath = basePath_;
+        if (basePath_ !== null) basePath = basePath_;
         depGraph = deps;
     }
 
     // recursive function to ensure all dependencies are loaded
     function ensureDeps(dep) {
+
         if (dep in depGraph) {
             // ensure all required deps are queued first
             var requiredDeps = depGraph[dep];
             for (var i = 0; i < requiredDeps.length; i++)
                 ensureDeps(requiredDeps[i]);
+
+        } else {
+            // scream out invalid depedency (usually because of a typo)
+            alert("Unknown dependency: " + dep);
+
         }
 
         // if it's already loaded, skip it
@@ -128,7 +148,10 @@
     // wire up to jQuery
     $.deps = {
         init: initDeps,
-        load: loadDeps
+        load: loadDeps,
+
+        // for debugging purpose
+        getGraph: function() { return depGraph; }
     };
 
 })();
