@@ -1,21 +1,20 @@
-Initialize with:
+Initialize your dependency graph like this:
 
     $.deps.init('/base/script/url/', {
+        'site.js': [],
+        'deps/dep1.js': ['site.js'],
+        'deps/dep2.js': ['site.js'],
 		
-		'site': [],
-		
-		'dependencies1': ['site'],
-		'dependencies2': ['site'],
-		
-        'componentXYZ': ['dependencies1', 'dependencies2']
+        'my_component.js': ['deps/dep1.js', 'deps/dep2.js']
     });
     
- Load a component with:
+ Load a component like this:
  
-     $.deps.load('componentXYZ', function() {
+     $.deps.load('my_component.js', function() {
          /* something to do after componentXYZ is loaded */
+         alert("all deps are loaded and executed!");
      });
      
-The script will lookup in the deps graph you specified and then make sure '/base/script/url/dependencies1.js' and '/base/script/url/dependencies2.js' and also 'componentXYZ.js' is loaded before executing the callback.
+The script will lookup in the deps graph you specified using `$.deps.init()` and then make sure they are all loaded *AND* executed before executing your callback function.
 
-Load order and dependencies are guaranteed. Callbacks are guaranteed to run *after* all dependencies have been loaded, but dependencies execution order itself is not guaranteed to be in order (yet)
+Dependencies and execution order are guaranteed.
