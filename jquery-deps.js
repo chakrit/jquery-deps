@@ -28,6 +28,7 @@
 // jquery-deps.js - jQuery dependency manager
 (function() {
     // TODO: Detect dependency loops
+    // TODO: Pre-load image dependencies
 
     var $ = jQuery;
 
@@ -47,11 +48,26 @@
 
 
     // util function
-    function removeFromArray(array, from, to) {
-        array = [];
-        var rest = array.slice((to || from) + 1 || array.length);
-        array.length = from < 0 ? array.length + from : from;
-        return array.push.apply(array, rest);
+    function processItem(name, content) {
+
+        var tag = null;
+
+        function stringEndsWith(str, suffix) {
+            return str.indexOf(suffix, str.length - suffix.length) !== -1;
+        }
+
+        // WARN: Potential evil, tread lightly.
+        // TODO: Should we just eval()?
+        if (stringEndsWith(name, ".js")) {
+            tag = "script";
+
+        } else if (stringEndsWith(name, ".css")) {
+            tag = "style";
+        }
+
+        tag = $(document.createElement(tag)).html(content);
+        $("head").append(tag);
+
     }
 
 
@@ -89,9 +105,9 @@
                 loadedDeps[item] = false; // this makes (item in loadedDeps) === true
                 shouldSpinLoad = true;
 
-                //$("head").append($(document.createElement("script")).html(
+
                 $.get(basePath + item, {}, (function(item) {
-                    return function(script) {
+                    return function(content) {
 
                         // replace the dep as a function so it gets executed once
                         // it's at the front of the queue -- this effectively defer
@@ -101,10 +117,7 @@
 
                             // mark as loaded and ready for use (executed)
                             loadedDeps[item] = true;
-
-                            // WARN: Potential evil, tread lightly.
-                            var scriptTag = $(document.createElement("script")).html(script);
-                            $("head").append(scriptTag);
+                            processItem(item, content);
                         };
 
                         loadCounter += 1;
