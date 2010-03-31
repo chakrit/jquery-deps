@@ -84,7 +84,8 @@
 
             var item = loadQueue[0];
 
-            // if we have a function, it means all of its dependencies have been loaded
+            // if we have a function, it means all of the function's dependencies
+            // (which should be on the queue preceding the function) have been loaded
             // so we can now execute the function
             if (typeof item == 'function') {
                 loadQueue.shift()(); // item == loadQueue[0]
@@ -96,6 +97,8 @@
             for (var i = 0; i < loadQueue.length && loadCounter > 0; i++) {
                 item = loadQueue[i];
 
+                // skip any functions that are waiting to be executed but doesn't need loading
+                // or if the dependency has been and is pending.
                 if (item in loadedDeps || typeof item == 'function') {
                     continue;
                 }
@@ -153,10 +156,6 @@
             var requiredDeps = depGraph[dep];
             for (var i = 0; i < requiredDeps.length; i++)
                 ensureDeps(requiredDeps[i]);
-
-        } else {
-            // scream out invalid depedency (usually because of a typo)
-            alert("Unknown dependency: " + dep);
 
         }
 
