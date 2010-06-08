@@ -1,3 +1,4 @@
+/// <reference path="vsdoc/jquery.js" />
 /* This file is Copyright (c) 2010, Chakrit Wichian
 * All rights reserved.
 *
@@ -23,172 +24,190 @@
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-/// <reference path="vsdoc/jquery.js" />
 
 // jquery-deps.js - jQuery dependency manager
-(function() {
-    // TODO: Detect dependency loops
-    // TODO: Pre-load image dependencies
+(function () {
+  // TODO: Detect dependency loops
+  // TODO: Enable pre-loading of images
+  // TODO: Add support for multiple/nested deps resolving context
+  //       so it's possible to use this without calling init
 
-    var $ = jQuery;
+  var $ = jQuery;
 
-    // Add support for multiple/nested deps resolving context
-    // so it's possible to use this without calling init
-    var basePath = "/",
-        depGraph = {},
-        loadedDeps = {},
-        loadQueue = [];
-
-
-    // OPTIMIZE: Find out the number of concurrent requests we can pull at once
-    //           which probably depends on the browser
-    var loadCounter = 6,
-        shouldSpinLoad = false,
-        spinId = null;
+  var basePath = "/",
+    depGraph = {},
+    loadedDeps = {},
+    loadQueue = [];
 
 
-    // util function
-    function processItem(name, content) {
+  // OPTIMIZE: Find out the number of concurrent requests we can pull at once
+  //           which probably depends on the browser
+  var loadCounter = 6,
+    shouldSpinLoad = false,
+    spinId = null;
 
-        var tag = null;
+  var filenameRx = /(?:\\|\/|^)([a-zA-Z0-9\-]+)\.[a-zA-Z]{0,4}$/,
+    head = $("head");
 
-        function stringEndsWith(str, suffix) {
-            return str.indexOf(suffix, str.length - suffix.length) !== -1;
+  // "execute" the content
+  function processItem(name, content) {
+
+    if (console) console.log("Processing: %s...", name);
+
+    var tag = null;
+
+    function stringEndsWith(str, suffix) {
+      return str.indexOf(suffix, str.length - suffix.length) !== -1;
+    }
+    function getFilenameWithoutExtension(str) {
+      return filenameRx.exec(str)[1];
+    }
+
+    // WARN: Potential evil, tread lightly.
+    if (stringEndsWith(name, ".js")) {
+      $.globalEval(content);
+
+    } else if (stringEndsWith(name, ".css")) {
+      $(document.createElement("style"))
+        .text(content)
+        .appendTo(head);
+
+    } else if (stringEndsWith(name, ".html") ||
+      stringEndsWith(name, ".htm") ||
+      stringEndsWith(name, ".haml")) {
+
+      // create a "<script type='text/html'>" to store templates
+      // html must be called *before* appendTo in order for this to work.
+      $(document.createElement("script"))
+        .attr("type", "text/html")
+        .attr("id", getFilenameWithoutExtension(name) + "-template")
+        .html(content)
+        .appendTo(head);
+    }
+
+  }
+
+
+  // actual script loader
+  function spinLoad() {
+    function innerSpinLoad() {
+
+      shouldSpinLoad = false;
+      clearTimeout(spinId);
+      spinId = null;
+
+      if (loadQueue.length == 0) return;
+
+
+      var item = loadQueue[0];
+
+      // if we have a function, it means all of the function's dependencies
+      // (which should have been on the queue preceding the function)
+      // have been loaded so we can now execute the function
+      if (typeof item == 'function') {
+        loadQueue.shift()(); // item == loadQueue[0]
+        shouldSpinLoad = true;
+      }
+
+      // item is not a function, its a dependency string
+      // if we have loading slots available, add it to the loadQueue.
+      for (var i = 0, l = loadQueue.length; i < l && loadCounter > 0; i++) {
+        item = loadQueue[i];
+
+        // skip any functions that are waiting to be executed but doesn't need loading
+        // or if the dependency has been and is pending.
+        if (item in loadedDeps || typeof item == 'function') {
+          continue;
         }
 
-        // WARN: Potential evil, tread lightly.
-        // TODO: Should we just eval()?
-        if (stringEndsWith(name, ".js")) {
-            tag = "script";
+        // occupy a load slot and spin off a loading function
+        loadCounter -= 1;
+        loadedDeps[item] = false; // this makes (item in loadedDeps) === true
+        shouldSpinLoad = true;
 
-        } else if (stringEndsWith(name, ".css")) {
-            tag = "style";
-        }
 
-        tag = $(document.createElement(tag)).html(content);
-        $("head").append(tag);
+        $.get(basePath + item, {}, (function (item) {
+          return function (content) {
+
+            // replace the dep as a function so it gets executed once
+            // it's at the front of the queue -- this effectively defer
+            // script execution and preserve the depedency execution order
+            var idx = $.inArray(item, loadQueue);
+            loadQueue[idx] = function () {
+
+              // mark as loaded and ready for use (executed)
+              loadedDeps[item] = true;
+              processItem(item, content);
+            };
+
+            loadCounter += 1;
+            spinLoad();
+          }
+        })(item), 'text');
+      }
+
+
+      if (shouldSpinLoad) spinLoad();
+    }
+
+    spinId = spinId || setTimeout(innerSpinLoad, 1);
+  }
+
+
+  // initialize the depedency graph
+  function initDeps(basePath_, deps) {
+    if (typeof basePath_ == 'object' && deps == null) {
+      deps = basePath_;
+      basePath_ = null;
+    }
+
+    if (basePath_ !== null) basePath = basePath_;
+    depGraph = deps;
+  }
+
+  // recursively ensure all dependencies are loaded
+  function ensureDeps(dep) {
+
+    if (dep in depGraph) {
+      // ensure all required deps are queued first
+      var requiredDeps = depGraph[dep];
+      for (var i = 0; i < requiredDeps.length; i++)
+        ensureDeps(requiredDeps[i]);
 
     }
 
+    // if it's already loaded, skip it
+    if (loadedDeps.hasOwnProperty(dep) || $.inArray(dep, loadQueue) != -1)
+      return;
 
-    // actual script loader
-    function spinLoad() {
-        function innerSpinLoad() {
+    // else push it to the load queue
+    loadQueue.push(dep);
+  }
 
-            shouldSpinLoad = false;
-            clearTimeout(spinId);
-            spinId = null;
+  // request loading of certain dependencies
+  function loadDeps(deps, callback) {
+    if (!(deps instanceof Array)) deps = [deps];
 
-            if (loadQueue.length == 0) return;
+    // push all dependencies onto the queue
+    for (var i = 0; i < deps.length; i++)
+      ensureDeps(deps[i]);
 
-
-            var item = loadQueue[0];
-
-            // if we have a function, it means all of the function's dependencies
-            // (which should be on the queue preceding the function) have been loaded
-            // so we can now execute the function
-            if (typeof item == 'function') {
-                loadQueue.shift()(); // item == loadQueue[0]
-                shouldSpinLoad = true;
-            }
-
-            // item is not a function, its a dependency string
-            // if we have loading slots available, add it to the loadQueue.
-            for (var i = 0; i < loadQueue.length && loadCounter > 0; i++) {
-                item = loadQueue[i];
-
-                // skip any functions that are waiting to be executed but doesn't need loading
-                // or if the dependency has been and is pending.
-                if (item in loadedDeps || typeof item == 'function') {
-                    continue;
-                }
-
-                // occupy a load slot and spin a loading (pseudo-)thread
-                loadCounter -= 1;
-                loadedDeps[item] = false; // this makes (item in loadedDeps) === true
-                shouldSpinLoad = true;
-
-
-                $.get(basePath + item, {}, (function(item) {
-                    return function(content) {
-
-                        // replace the dep as a function so it gets executed once
-                        // it's at the front of the queue -- this effectively defer
-                        // script execution and preserve the depedency execution order
-                        var idx = $.inArray(item, loadQueue);
-                        loadQueue[idx] = function() {
-
-                            // mark as loaded and ready for use (executed)
-                            loadedDeps[item] = true;
-                            processItem(item, content);
-                        };
-
-                        loadCounter += 1;
-                        spinLoad();
-                    }
-                })(item), 'text');
-            }
-
-
-            if (shouldSpinLoad) spinLoad();
-        }
-
-        spinId = spinId || setTimeout(innerSpinLoad, 0);
+    // then add the callback *after* the deps
+    if (callback && typeof callback == 'function') {
+      loadQueue.push(callback);
     }
 
-
-    // initialize the depedency graph
-    function initDeps(basePath_, deps) {
-        if (typeof basePath_ == 'object' && deps == null) {
-            deps = basePath_;
-            basePath_ = null;
-        }
-
-        if (basePath_ !== null) basePath = basePath_;
-        depGraph = deps;
-    }
-
-    // recursive function to ensure all dependencies are loaded
-    function ensureDeps(dep) {
-
-        if (dep in depGraph) {
-            // ensure all required deps are queued first
-            var requiredDeps = depGraph[dep];
-            for (var i = 0; i < requiredDeps.length; i++)
-                ensureDeps(requiredDeps[i]);
-
-        }
-
-        // if it's already loaded, skip it
-        if (loadedDeps.hasOwnProperty(dep) || $.inArray(dep, loadQueue) != -1)
-            return;
-
-        // else push it to the load queue
-        loadQueue.push(dep);
-    }
-
-    // function to request loading of certain dependencies
-    function loadDeps(deps, callback) {
-        if (!(deps instanceof Array)) deps = [deps];
-
-        for (var i = 0; i < deps.length; i++)
-            ensureDeps(deps[i]);
-
-        if (callback && typeof callback == 'function') {
-            loadQueue.push(callback);
-        }
-
-        spinLoad();
-    }
+    spinLoad();
+  }
 
 
-    // wire up to jQuery
-    $.deps = {
-        init: initDeps,
-        load: loadDeps,
+  // wire up to jQuery
+  $.deps = {
+    init: initDeps,
+    load: loadDeps,
 
-        // for debugging purpose
-        getGraph: function() { return depGraph; }
-    };
+    // for debugging purpose
+    getGraph: function () { return depGraph; }
+  };
 
 })();
