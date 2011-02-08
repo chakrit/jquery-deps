@@ -115,14 +115,14 @@
         item = loadQueue[i];
 
         // skip any functions that are waiting to be executed but doesn't need loading
-        // or if the dependency has been and is pending.
+        // or if the dependency has been loaded and is pending execution.
         if (item in loadedDeps || typeof item == 'function') {
           continue;
         }
 
         // occupy a load slot and spin off a loading function
         loadCounter -= 1;
-        loadedDeps[item] = false; // this makes (item in loadedDeps) === true
+        loadedDeps[item] = false; // this makes `(item in loadedDeps) === true`
         shouldSpinLoad = true;
 
 
@@ -151,7 +151,7 @@
     }
 
     spinId = spinId || setTimeout(innerSpinLoad, 1);
-  }
+  } 
 
 
   // initialize the depedency graph
@@ -163,6 +163,8 @@
 
     if (basePath_ !== null) basePath = basePath_;
     depGraph = deps;
+    
+    return this;
   }
 
   // recursively ensure all dependencies are loaded
@@ -198,6 +200,7 @@
     }
 
     spinLoad();
+    return this;
   }
 
 
