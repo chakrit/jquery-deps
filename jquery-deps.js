@@ -41,7 +41,7 @@
 
 
   // OPTIMIZE: Find out the number of concurrent requests we can pull at once
-  //           which probably depends on the browser
+  //   to maximize download spped (which probably vary from browser to browser)
   var loadCounter = 6,
     shouldSpinLoad = false,
     spinId = null;
@@ -105,11 +105,14 @@
       // (which should have been on the queue preceding the function)
       // have been loaded so we can now execute the function
       if (typeof item == 'function') {
-        loadQueue.shift()(); // item == loadQueue[0]
+        loadQueue.shift()(); // invoke the function (item == loadQueue[0]) 
         shouldSpinLoad = true;
       }
 
-      // item is not a function, its a dependency string
+      // OPTIMIZE: Short-circuit the spin load thing when we have a series
+      //   of functions to be executed
+      
+      // if item is not a function, its a dependency string
       // if we have loading slots available, add it to the loadQueue.
       for (var i = 0, l = loadQueue.length; i < l && loadCounter > 0; i++) {
         item = loadQueue[i];
@@ -171,7 +174,7 @@
   function ensureDeps(dep) {
 
     if (dep in depGraph) {
-      // ensure all required deps are queued first
+      // queue all required deps specified in the depGraph first
       var requiredDeps = depGraph[dep];
       for (var i = 0; i < requiredDeps.length; i++)
         ensureDeps(requiredDeps[i]);
