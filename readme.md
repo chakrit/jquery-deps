@@ -19,8 +19,9 @@ The script will lookup in the deps graph you specified using `$.deps.init()` and
 
 Dependencies and execution order are guaranteed.
 
-**Supported file types:**
+### Supported file types:
 
 * **JS** - processed using `$.globalEval`
 * **CSS** - processed by adding a new `<style />` element to the page
 * **HTML**, **HTM**, **HAML** - processed by adding a new `<script />` element to the page with `type="text/html"` and `id=the_filename-template`, where `the_filename` is replaced with the filename without extension (e.g. `mywidget.html`, once loaded, can be accessed via `$("#mywidget-template").html()`).
+

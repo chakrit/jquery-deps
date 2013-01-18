@@ -5,8 +5,8 @@ $(function() {
     console.log(dep);
     $("#statuses").append($("<li></li>").text(dep));
   };
-  
-  $.deps.init(
+
+  $.deps.init('sample/',
     { 'dep5.css': []
     , 'dep5.js': ['dep5.css']
     , 'dep4.js': ['dep5.js']
