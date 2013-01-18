@@ -25,3 +25,4 @@ Dependencies and execution order are guaranteed.
 * **CSS** - processed by adding a new `<style />` element to the page
 * **HTML**, **HTM**, **HAML** - processed by adding a new `<script />` element to the page with `type="text/html"` and `id=the_filename-template`, where `the_filename` is replaced with the filename without extension (e.g. `mywidget.html`, once loaded, can be accessed via `$("#mywidget-template").html()`).
 
+
