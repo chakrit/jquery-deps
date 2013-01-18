@@ -14,7 +14,7 @@
   "dependencies": {
     "jquery": ">= 1.9.0"
   },
-  "description": "A very minimal client-side publish/subscribe system on top of jQuery.",
+  "description": "Simplified jQuery dependency manager. Concurrent pre-downloading, simple to setup, execution orders are preserved.",
   "keywords": ["deps", "dependencies"],
   "homepage": "https://github.com/chakrit/jquery-deps",
   "maintainers": [{
