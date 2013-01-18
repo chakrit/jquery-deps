@@ -1,0 +1,26 @@
+{
+  "name": "deps",
+  "version": "0.1.0",
+  "title": "jQuery-deps",
+  "author": {
+    "name": "Chakrit Wichian",
+    "email": "service@chakrit.net",
+    "url": "http://chakrit.net"
+  },
+  "licenses": [{
+    "type": "BSD",
+    "url": "http://opensource.org/licenses/BSD-3-Clause"
+  }],
+  "dependencies": {
+    "jquery": ">= 1.9.0"
+  },
+  "description": "A very minimal client-side publish/subscribe system on top of jQuery.",
+  "keywords": ["deps", "dependencies"],
+  "homepage": "https://github.com/chakrit/jquery-deps",
+  "maintainers": [{
+    "name": "Chakrit Wichian",
+    "email": "service@chakrit.net",
+    "url": "http://chakrit.net"
+  }],
+  "bugs": "https://github.com/chakrit/jquery-deps/issues"
+}
